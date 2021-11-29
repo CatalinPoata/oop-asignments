@@ -1,0 +1,87 @@
+/*
+ * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
+package kotlin.reflect.jvm.internal.impl.builtins
+
+import kotlin.reflect.jvm.internal.impl.builtins.StandardNames.CONTINUATION_INTERFACE_FQ_NAME_EXPERIMENTAL
+import kotlin.reflect.jvm.internal.impl.builtins.StandardNames.CONTINUATION_INTERFACE_FQ_NAME_RELEASE
+import kotlin.reflect.jvm.internal.impl.builtins.StandardNames.COROUTINES_PACKAGE_FQ_NAME_EXPERIMENTAL
+import kotlin.reflect.jvm.internal.impl.builtins.StandardNames.COROUTINES_PACKAGE_FQ_NAME_RELEASE
+import kotlin.reflect.jvm.internal.impl.descriptors.ClassKind
+import kotlin.reflect.jvm.internal.impl.descriptors.Modality
+import kotlin.reflect.jvm.internal.impl.descriptors.SourceElement
+import kotlin.reflect.jvm.internal.impl.descriptors.DescriptorVisibilities
+import kotlin.reflect.jvm.internal.impl.descriptors.annotations.Annotations
+import kotlin.reflect.jvm.internal.impl.descriptors.impl.EmptyPackageFragmentDescriptor
+import kotlin.reflect.jvm.internal.impl.descriptors.impl.MutableClassDescriptor
+import kotlin.reflect.jvm.internal.impl.descriptors.impl.TypeParameterDescriptorImpl
+import kotlin.reflect.jvm.internal.impl.name.FqName
+import kotlin.reflect.jvm.internal.impl.name.Name
+import kotlin.reflect.jvm.internal.impl.storage.LockBasedStorageManager
+import kotlin.reflect.jvm.internal.impl.types.*
+import kotlin.reflect.jvm.internal.impl.types.typeUtil.asTypeProjection
+import kotlin.reflect.jvm.internal.impl.types.typeUtil.builtIns
+
+private val FAKE_CONTINUATION_CLASS_DESCRIPTOR_EXPERIMENTAL =
+    MutableClassDescriptor(
+        EmptyPackageFragmentDescriptor(ErrorUtils.getErrorModule(), COROUTINES_PACKAGE_FQ_NAME_EXPERIMENTAL),
+        ClassKind.INTERFACE, /* isInner = */ false, /* isExternal = */ false,
+        CONTINUATION_INTERFACE_FQ_NAME_EXPERIMENTAL.shortName(), SourceElement.NO_SOURCE, LockBasedStorageManager.NO_LOCKS
+    ).apply {
+        modality = Modality.ABSTRACT
+        visibility = DescriptorVisibilities.PUBLIC
+        setTypeParameterDescriptors(
+            TypeParameterDescriptorImpl.createWithDefaultBound(
+                this, Annotations.EMPTY, false, Variance.IN_VARIANCE, Name.identifier("T"), 0, LockBasedStorageManager.NO_LOCKS
+            ).let(::listOf)
+        )
+        createTypeConstructor()
+    }
+
+private val FAKE_CONTINUATION_CLASS_DESCRIPTOR_RELEASE =
+    MutableClassDescriptor(
+        EmptyPackageFragmentDescriptor(ErrorUtils.getErrorModule(), COROUTINES_PACKAGE_FQ_NAME_RELEASE),
+        ClassKind.INTERFACE, /* isInner = */ false, /* isExternal = */ false,
+        CONTINUATION_INTERFACE_FQ_NAME_RELEASE.shortName(), SourceElement.NO_SOURCE, LockBasedStorageManager.NO_LOCKS
+    ).apply {
+        modality = Modality.ABSTRACT
+        visibility = DescriptorVisibilities.PUBLIC
+        setTypeParameterDescriptors(
+            TypeParameterDescriptorImpl.createWithDefaultBound(
+                this, Annotations.EMPTY, false, Variance.IN_VARIANCE, Name.identifier("T"), 0, LockBasedStorageManager.NO_LOCKS
+            ).let(::listOf)
+        )
+        createTypeConstructor()
+    }
+
+fun transformSuspendFunctionToRuntimeFunctionType(suspendFunType: KotlinType, isReleaseCoroutines: Boolean): SimpleType {
+    assert(suspendFunType.isSuspendFunctionType) {
+        "This type should be suspend function type: $suspendFunType"
+    }
+
+    return createFunctionType(
+            suspendFunType.builtIns,
+            suspendFunType.annotations,
+            suspendFunType.getReceiverTypeFromFunctionType(),
+            suspendFunType.getValueParameterTypesFromFunctionType().map(TypeProjection::getType) +
+            KotlinTypeFactory.simpleType(
+                    Annotations.EMPTY,
+                    // Continuation interface is not a part of built-ins anymore, it has been moved to stdlib.
+                    // While it must be somewhere in the dependencies, but here we don't have a reference to the module,
+                    // and it's rather complicated to inject it by now, so we just use a fake class descriptor.
+                    if (isReleaseCoroutines) FAKE_CONTINUATION_CLASS_DESCRIPTOR_RELEASE.typeConstructor
+                    else FAKE_CONTINUATION_CLASS_DESCRIPTOR_EXPERIMENTAL.typeConstructor,
+                    listOf(suspendFunType.getReturnTypeFromFunctionType().asTypeProjection()), nullable = false
+            ),
+            // TODO: names
+            null,
+            suspendFunType.builtIns.nullableAnyType
+    ).makeNullableAsSpecified(suspendFunType.isMarkedNullable)
+}
+
+fun isContinuation(name: FqName?, isReleaseCoroutines: Boolean): Boolean {
+    return if (isReleaseCoroutines) name == CONTINUATION_INTERFACE_FQ_NAME_RELEASE
+    else name == CONTINUATION_INTERFACE_FQ_NAME_EXPERIMENTAL
+}

@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Export-Package: org.json.simple.parser;uses:="org.json.simple",org.jso
+ n.simple;uses:="org.json.simple.parser"
+Built-By: reto
+Tool: Bnd-0.0.357
+Bundle-Name: Clerezza Ext - Json.simple OSGi Bundle
+Created-By: Apache Maven Bundle Plugin
+Bundle-Vendor: The Apache Software Foundation
+Build-Jdk: 1.6.0_23
+Bundle-Version: 0.3.0.incubating
+Bnd-LastModified: 1329654712699
+Bundle-ManifestVersion: 2
+Bundle-License: http://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-Description: json.simple parses and serializes json
+Bundle-DocURL: http://www.apache.org/
+Bundle-SymbolicName: org.apache.clerezza.ext.org.json.simple
+Import-Package: org.json.simple,org.json.simple.parser
+

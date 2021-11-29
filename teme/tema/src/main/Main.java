@@ -1,7 +1,7 @@
 package main;
 
-import checker.Checkstyle;
 import checker.Checker;
+import checker.Checkstyle;
 import common.Constants;
 import fileio.Input;
 import fileio.InputLoader;
